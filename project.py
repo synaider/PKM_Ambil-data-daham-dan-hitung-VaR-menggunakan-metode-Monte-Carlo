@@ -55,6 +55,17 @@ tab1, tab2, tab3 = st.tabs(["📥 Download Data Saham", "📤 Upload & Uji Norma
 with tab1:
     st.header("📥 Download Data Saham dari Yahoo Finance")
     
+    st.markdown("""
+    <div class="info-box">
+        <strong>ℹ️ Informasi:</strong>
+        <ul>
+            <li><strong>Saham Indonesia:</strong> Saat Input Manual gunakan kode saham tanpa .JK karena sistem otomatis mengisi .JK (contoh: BBCA, TLKM)</li>
+            <li><strong>Saham Internasional:</strong> Gunakan ticker langsung (contoh: AAPL, MSFT, GOOGL)</li>
+            <li>Atau pilih dari daftar preset saham populer yang tersedia</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Pilihan jenis pasar
     market_type = st.radio(
         "Pilih Jenis Pasar",
@@ -62,27 +73,56 @@ with tab1:
         horizontal=True
     )
     
+    # Pilihan mode input
+    input_mode = st.radio(
+        "Pilih Mode Input",
+        ["📋 Pilih dari Daftar Preset", "✍️ Input Manual Ticker"],
+        horizontal=True
+    )
+    
     col1, col2 = st.columns(2)
     
     with col1:
-        if market_type == "🇮🇩 Saham Indonesia (IDX)":
-            selected_stock = st.selectbox(
-                "Pilih Saham Indonesia",
-                options=list(STOCK_LIST_IDN.keys()),
-                format_func=lambda x: f"{x}.JK - {STOCK_LIST_IDN[x]}",
-                index=list(STOCK_LIST_IDN.keys()).index("JPFA")
-            )
-            ticker_symbol = f"{selected_stock}.JK"
-            stock_name = STOCK_LIST_IDN[selected_stock]
+        if input_mode == "📋 Pilih dari Daftar Preset":
+            if market_type == "🇮🇩 Saham Indonesia (IDX)":
+                selected_stock = st.selectbox(
+                    "Pilih Saham Indonesia",
+                    options=list(STOCK_LIST_IDN.keys()),
+                    format_func=lambda x: f"{x}.JK - {STOCK_LIST_IDN[x]}",
+                    index=list(STOCK_LIST_IDN.keys()).index("JPFA")
+                )
+                ticker_symbol = f"{selected_stock}.JK"
+                stock_name = STOCK_LIST_IDN[selected_stock]
+            else:
+                selected_stock = st.selectbox(
+                    "Pilih Saham Internasional",
+                    options=list(STOCK_LIST_INTL.keys()),
+                    format_func=lambda x: f"{x} - {STOCK_LIST_INTL[x]}",
+                    index=list(STOCK_LIST_INTL.keys()).index("AAPL")
+                )
+                ticker_symbol = selected_stock
+                stock_name = STOCK_LIST_INTL[selected_stock]
         else:
-            selected_stock = st.selectbox(
-                "Pilih Saham Internasional",
-                options=list(STOCK_LIST_INTL.keys()),
-                format_func=lambda x: f"{x} - {STOCK_LIST_INTL[x]}",
-                index=list(STOCK_LIST_INTL.keys()).index("AAPL")
-            )
-            ticker_symbol = selected_stock
-            stock_name = STOCK_LIST_INTL[selected_stock]
+            if market_type == "🇮🇩 Saham Indonesia (IDX)":
+                manual_ticker = st.text_input(
+                    "Masukkan Kode Saham Indonesia (tanpa .JK)",
+                    value="BBCA",
+                    help="Contoh: BBCA, TLKM, ASII, UNVR"
+                ).upper().strip()
+                ticker_symbol = f"{manual_ticker}.JK"
+                stock_name = manual_ticker
+                
+                st.info(f"📊 Ticker yang akan diunduh: **{ticker_symbol}**")
+            else:
+                manual_ticker = st.text_input(
+                    "Masukkan Ticker Saham Internasional",
+                    value="AAPL",
+                    help="Contoh: AAPL, MSFT, TSLA, GOOGL, AMZN"
+                ).upper().strip()
+                ticker_symbol = manual_ticker
+                stock_name = manual_ticker
+                
+                st.info(f"📊 Ticker yang akan diunduh: **{ticker_symbol}**")
         
         start_date = st.date_input("Tanggal Mulai", value=datetime.now() - timedelta(days=365))
     
@@ -93,63 +133,80 @@ with tab1:
     
     if st.button("📥 Download Data Saham", type="primary", use_container_width=True):
         try:
-            with st.spinner(f'Mengunduh data {ticker_symbol}...'):
-                data = yf.download(ticker_symbol, start=start_date, end=end_date, progress=False)
-                
-                if data.empty:
-                    st.error("❌ Data tidak ditemukan. Pastikan ticker dan tanggal sudah benar.")
-                else:
-                    data = data.reset_index()
-                    close_price = data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']].copy()
-                    close_price.columns = ['Date', 'Open', 'High', 'Low', 'price.close', 'Volume']
-                    close_price['Log Return'] = close_price['price.close'].pct_change().apply(
-                        lambda x: np.log(1 + x) if pd.notna(x) and x != -1 else np.nan
-                    )
+            # Validasi ticker tidak kosong
+            if not ticker_symbol or ticker_symbol.strip() == "" or ticker_symbol.strip() == ".JK":
+                st.error("❌ Ticker saham tidak boleh kosong!")
+            else:
+                with st.spinner(f'Mengunduh data {ticker_symbol}...'):
+                    data = yf.download(ticker_symbol, start=start_date, end=end_date, progress=False)
                     
-                    st.session_state['downloaded_data'] = close_price
-                    st.session_state['stock_ticker'] = ticker_symbol
-                    
-                    st.markdown(f"""
-                    <div class="success-box">
-                        <h3>✅ Data Berhasil Diunduh!</h3>
-                        <p><strong>Saham:</strong> {ticker_symbol} - {stock_name}</p>
-                        <p><strong>Periode:</strong> {start_date} s/d {end_date}</p>
-                        <p><strong>Total Data:</strong> {len(close_price)} baris</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.subheader("Preview Data (10 Data Terakhir)")
-                    st.dataframe(close_price.tail(10), use_container_width=True)
-                    
-                    st.subheader("📈 Statistik Deskriptif Log Return")
-                    log_returns = close_price['Log Return'].dropna()
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Mean", f"{log_returns.mean():.6f}")
-                        st.metric("Std Dev", f"{log_returns.std():.6f}")
-                    with col2:
-                        st.metric("Min", f"{log_returns.min():.6f}")
-                        st.metric("Max", f"{log_returns.max():.6f}")
-                    with col3:
-                        st.metric("Skewness", f"{stats.skew(log_returns):.6f}")
-                        st.metric("Kurtosis", f"{stats.kurtosis(log_returns):.6f}")
-                    with col4:
-                        st.metric("Count", f"{len(log_returns)}")
-                    
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        close_price.to_excel(writer, index=False, sheet_name='Data')
-                    
-                    st.download_button(
-                        label="💾 Download ke Excel",
-                        data=output.getvalue(),
-                        file_name=f"{selected_stock}_data.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
+                    if data.empty:
+                        st.error(f"❌ Data tidak ditemukan untuk ticker **{ticker_symbol}**")
+                        st.warning("""
+                        **Kemungkinan penyebab:**
+                        - Ticker salah atau tidak tersedia di Yahoo Finance
+                        - Tidak ada data pada periode yang dipilih
+                        - Format ticker salah (untuk saham Indonesia jangan ditulis .Jk lagi karena sistem sudah otomatis mengisi .JK)
+                        
+                        **Contoh ticker yang benar:**
+                        - Indonesia: BBCA, TLKM, ASII
+                        - Internasional: AAPL, MSFT, GOOGL, TSLA
+                        """)
+                    else:
+                        data = data.reset_index()
+                        close_price = data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']].copy()
+                        close_price.columns = ['Date', 'Open', 'High', 'Low', 'price.close', 'Volume']
+                        close_price['Log Return'] = close_price['price.close'].pct_change().apply(
+                            lambda x: np.log(1 + x) if pd.notna(x) and x != -1 else np.nan
+                        )
+                        
+                        st.session_state['downloaded_data'] = close_price
+                        st.session_state['stock_ticker'] = ticker_symbol
+                        
+                        st.markdown(f"""
+                        <div class="success-box">
+                            <h3>✅ Data Berhasil Diunduh!</h3>
+                            <p><strong>Saham:</strong> {ticker_symbol} - {stock_name}</p>
+                            <p><strong>Periode:</strong> {start_date} s/d {end_date}</p>
+                            <p><strong>Total Data:</strong> {len(close_price)} baris</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.subheader("Preview Data (Keseluruhan)")
+                        st.dataframe(close_price, use_container_width=True, height=400)
+                        
+                        st.subheader("📈 Statistik Deskriptif Log Return")
+                        log_returns = close_price['Log Return'].dropna()
+                        
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("Mean", f"{log_returns.mean():.6f}")
+                            st.metric("Std Dev", f"{log_returns.std():.6f}")
+                        with col2:
+                            st.metric("Min", f"{log_returns.min():.6f}")
+                            st.metric("Max", f"{log_returns.max():.6f}")
+                        with col3:
+                            st.metric("Skewness", f"{stats.skew(log_returns):.6f}")
+                            st.metric("Kurtosis", f"{stats.kurtosis(log_returns):.6f}")
+                        with col4:
+                            st.metric("Count", f"{len(log_returns)}")
+                        
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            close_price.to_excel(writer, index=False, sheet_name='Data')
+                        
+                        # Buat nama file yang aman
+                        safe_filename = ticker_symbol.replace(".", "_")
+                        st.download_button(
+                            label="💾 Download ke Excel",
+                            data=output.getvalue(),
+                            file_name=f"{safe_filename}_data.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
+            st.info("💡 Pastikan ticker yang Anda masukkan benar dan tersedia di Yahoo Finance")
 
 with tab2:
     st.header("📤 Upload Data & Uji Normalitas")
