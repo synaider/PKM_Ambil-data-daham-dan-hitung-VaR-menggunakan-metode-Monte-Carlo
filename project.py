@@ -131,7 +131,7 @@ with tab1:
         st.write("")
         end_date = st.date_input("Tanggal Akhir", value=datetime.now())
     
-    if st.button("📥 Download Data Saham", type="primary", use_container_width=True):
+    if st.button("📥 Lihat dan Download Data Saham", type="primary", use_container_width=True):
         try:
             # Validasi ticker tidak kosong
             if not ticker_symbol or ticker_symbol.strip() == "" or ticker_symbol.strip() == ".JK":
