@@ -6,7 +6,7 @@ from scipy import stats
 from datetime import datetime, timedelta
 import io
 
-st.set_page_config(page_title="VaR Advanced Simulator", page_icon="📊", layout="wide")
+st.set_page_config(page_title="INVESTA", page_icon="📊", layout="wide")
 
 st.markdown("""
 <style>
