@@ -19,7 +19,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">📊 Value at Risk Advanced Simulator</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">📊 INVESTA</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Aplikasi Manajemen Risiko dengan Monte Carlo & Cornish-Fisher Expansion</p>', unsafe_allow_html=True)
 
 # Daftar saham Indonesia
